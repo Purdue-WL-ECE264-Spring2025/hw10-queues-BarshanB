@@ -1,98 +1,86 @@
 #include "queue.h"
 #include "tile_game.h"
-#include <stdbool.h>
 
-void enqueue(struct queue *q, struct game_state state) {
-    uint64_t serialized = serialize(state);
-    insert_at_tail(&q->data, serialized);
+void add_to_queue(struct queue *q, struct game_state st) {
+    if (!q) return;
+    size_t serialized = convert_to_number(st);
+    append_to_end(&q->storage, serialized);
 }
 
-struct game_state dequeue(struct queue *q) {
-    uint64_t serialized = remove_from_head(&q->data);
-    return deserialize(serialized);
+struct game_state take_from_queue(struct queue *q) {
+    if (!q) return (struct game_state){0};
+    size_t val = pop_front(&q->storage);
+    return convert_to_state(val);
 }
 
-bool check_solution(struct game_state *state, const uint8_t solution[4][4]) {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (state->tiles[i][j] != solution[i][j]) {
-                return false;
+int count_required_moves(struct game_state initial) {
+    struct queue q = {0};
+    struct linked_list seen = {0};
+    
+    add_to_queue(&q, initial);
+    
+    while (q.storage.first) {
+        struct game_state current = take_from_queue(&q);
+        size_t current_id = convert_to_number(current);
+        
+        int already_visited = 0;
+        for (struct list_node *n = seen.first; n; n = n->next_ptr) {
+            if (n->data == current_id) {
+                already_visited = 1;
+                break;
+            }
+        }
+        
+        if (!already_visited) {
+            add_to_front(&seen, current_id);
+            
+            int is_solved = 1;
+            int expected = 1;
+            for (int i = 0; i < 4 && is_solved; i++) {
+                for (int j = 0; j < 4 && is_solved; j++) {
+                    if (i == 3 && j == 3) {
+                        if (current.tiles[i][j] != 0) {
+                            is_solved = 0;
+                        }
+                    } else {
+                        if (current.tiles[i][j] != expected++) {
+                            is_solved = 0;
+                        }
+                    }
+                }
+            }
+            
+            if (is_solved) {
+                cleanup_list(seen);
+                cleanup_list(q.storage);
+                return current.step_count;
+            }
+            
+            struct game_state next_state;
+            if (current.empty_row > 0) {
+                next_state = current;
+                slide_down(&next_state);
+                add_to_queue(&q, next_state);
+            }
+            if (current.empty_row < 3) {
+                next_state = current;
+                slide_up(&next_state);
+                add_to_queue(&q, next_state);
+            }
+            if (current.empty_col > 0) {
+                next_state = current;
+                slide_right(&next_state);
+                add_to_queue(&q, next_state);
+            }
+            if (current.empty_col < 3) {
+                next_state = current;
+                slide_left(&next_state);
+                add_to_queue(&q, next_state);
             }
         }
     }
-    return true;
-}
-
-bool is_solved(struct game_state *state) {
-    // Check for standard solution
-    const uint8_t standard[4][4] = {
-        {1, 2, 3, 4},
-        {5, 6, 7, 8},
-        {9, 10, 11, 12},
-        {13, 14, 15, 0}
-    };
-    if (check_solution(state, standard)) return true;
     
-    // Check for second test case
-    const uint8_t test2[4][4] = {
-        {1, 2, 3, 4},
-        {5, 6, 0, 8},
-        {9, 10, 7, 12},
-        {13, 14, 11, 15}
-    };
-    if (check_solution(state, test2)) return true;
-    
-    // Check for first test case
-    const uint8_t test1[4][4] = {
-        {1, 3, 6, 4},
-        {5, 2, 11, 7},
-        {9, 10, 15, 8},
-        {13, 14, 0, 12}
-    };
-    return check_solution(state, test1);
-}
-
-int number_of_moves(struct game_state start) {
-    struct queue q = {0};
-    enqueue(&q, start);
-    
-    while (q.data.head) {
-        struct game_state current = dequeue(&q);
-        
-        if (is_solved(&current)) {
-            int moves = current.num_steps;
-            free_list(q.data);
-            return moves;
-        }
-        
-        // Generate possible moves
-        struct game_state new_state;
-        
-        new_state = current;
-        move_up(&new_state);
-        if (new_state.num_steps > current.num_steps) {
-            enqueue(&q, new_state);
-        }
-        
-        new_state = current;
-        move_down(&new_state);
-        if (new_state.num_steps > current.num_steps) {
-            enqueue(&q, new_state);
-        }
-        
-        new_state = current;
-        move_left(&new_state);
-        if (new_state.num_steps > current.num_steps) {
-            enqueue(&q, new_state);
-        }
-        
-        new_state = current;
-        move_right(&new_state);
-        if (new_state.num_steps > current.num_steps) {
-            enqueue(&q, new_state);
-        }
-    }
-    
-    free_list(q.data);
+    cleanup_list(q.storage);
+    cleanup_list(seen);
     return -1;
 }
