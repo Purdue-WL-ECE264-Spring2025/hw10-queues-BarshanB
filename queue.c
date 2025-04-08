@@ -1,86 +1,84 @@
 #include "queue.h"
 #include "tile_game.h"
 
-void add_to_queue(struct queue *q, struct game_state state) {
-    if (!q) return;
-    size_t serialized = serialize(state);
-    append_node(&q->data, serialized);
+void enqueue(struct queue *q, struct game_state state) {
+    size_t encoded = serialize(state);
+    insert_at_tail(&q->data, encoded);
 }
 
-struct game_state remove_from_queue(struct queue *q) {
-    if (!q) return (struct game_state){0};
-    size_t val = remove_first(&q->data);
-    return deserialize(val);
+struct game_state dequeue(struct queue *q) {
+    size_t decoded_val = remove_from_head(&q->data);
+    return deserialize(decoded_val);
 }
 
-int count_moves(struct game_state initial) {
-    struct queue q = {0};
-    struct linked_list visited = {0};
-    
-    add_to_queue(&q, initial);
-    
+int number_of_moves(struct game_state start) {
+    struct queue q = { .data.head = NULL };
+    struct linked_list visited = { .head = NULL };
+
+    enqueue(&q, start);
+
     while (q.data.head) {
-        struct game_state current = remove_from_queue(&q);
+        struct game_state current = dequeue(&q);
         size_t current_id = serialize(current);
-        
-        int skip = 0;
+
+        int already_seen = 0;
         for (struct list_node *node = visited.head; node; node = node->next) {
             if (node->value == current_id) {
-                skip = 1;
+                already_seen = 1;
                 break;
             }
         }
-        
-        if (!skip) {
-            prepend_node(&visited, current_id);
-            
+
+        if (!already_seen) {
+            insert_at_head(&visited, current_id);
+
             int solved = 1;
-            int counter = 1;
-            for (int i = 0; i < 4 && solved; i++) {
-                for (int j = 0; j < 4 && solved; j++) {
-                    if (i == 3 && j == 3) {
-                        if (current.tiles[i][j] != 0) {
-                            solved = 0;
-                        }
-                    } else {
-                        if (current.tiles[i][j] != counter++) {
-                            solved = 0;
-                        }
+            int val = 1;
+            for (int r = 0; r < 4 && solved; r++) {
+                for (int c = 0; c < 4 && solved; c++) {
+                    if (r == 3 && c == 3) {
+                        if (current.tiles[r][c] != 0) solved = 0;
+                    } else if (current.tiles[r][c] != val++) {
+                        solved = 0;
                     }
                 }
             }
-            
+
             if (solved) {
-                destroy_list(visited);
-                destroy_list(q.data);
+                free_list(visited);
+                free_list(q.data);
                 return current.num_steps;
             }
 
             struct game_state new_state;
+
             if (current.empty_row > 0) {
                 new_state = current;
                 move_down(&new_state);
-                add_to_queue(&q, new_state);
+                enqueue(&q, new_state);
             }
+
             if (current.empty_row < 3) {
                 new_state = current;
                 move_up(&new_state);
-                add_to_queue(&q, new_state);
+                enqueue(&q, new_state);
             }
+
             if (current.empty_col > 0) {
                 new_state = current;
                 move_right(&new_state);
-                add_to_queue(&q, new_state);
+                enqueue(&q, new_state);
             }
+
             if (current.empty_col < 3) {
                 new_state = current;
                 move_left(&new_state);
-                add_to_queue(&q, new_state);
+                enqueue(&q, new_state);
             }
         }
     }
-    
-    destroy_list(q.data);
-    destroy_list(visited);
+
+    free_list(q.data);
+    free_list(visited);
     return -1;
 }
