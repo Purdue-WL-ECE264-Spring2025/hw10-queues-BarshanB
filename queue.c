@@ -1,86 +1,86 @@
 #include "queue.h"
 #include "tile_game.h"
 
-void add_to_queue(struct queue *q, struct game_state st) {
+void add_to_queue(struct queue *q, struct game_state state) {
     if (!q) return;
-    size_t serialized = convert_to_number(st);
-    append_to_end(&q->storage, serialized);
+    size_t serialized = serialize(state);
+    append_node(&q->data, serialized);
 }
 
-struct game_state take_from_queue(struct queue *q) {
+struct game_state remove_from_queue(struct queue *q) {
     if (!q) return (struct game_state){0};
-    size_t val = pop_front(&q->storage);
-    return convert_to_state(val);
+    size_t val = remove_first(&q->data);
+    return deserialize(val);
 }
 
-int count_required_moves(struct game_state initial) {
+int count_moves(struct game_state initial) {
     struct queue q = {0};
-    struct linked_list seen = {0};
+    struct linked_list visited = {0};
     
     add_to_queue(&q, initial);
     
-    while (q.storage.first) {
-        struct game_state current = take_from_queue(&q);
-        size_t current_id = convert_to_number(current);
+    while (q.data.head) {
+        struct game_state current = remove_from_queue(&q);
+        size_t current_id = serialize(current);
         
-        int already_visited = 0;
-        for (struct list_node *n = seen.first; n; n = n->next_ptr) {
-            if (n->data == current_id) {
-                already_visited = 1;
+        int skip = 0;
+        for (struct list_node *node = visited.head; node; node = node->next) {
+            if (node->value == current_id) {
+                skip = 1;
                 break;
             }
         }
         
-        if (!already_visited) {
-            add_to_front(&seen, current_id);
+        if (!skip) {
+            prepend_node(&visited, current_id);
             
-            int is_solved = 1;
-            int expected = 1;
-            for (int i = 0; i < 4 && is_solved; i++) {
-                for (int j = 0; j < 4 && is_solved; j++) {
+            int solved = 1;
+            int counter = 1;
+            for (int i = 0; i < 4 && solved; i++) {
+                for (int j = 0; j < 4 && solved; j++) {
                     if (i == 3 && j == 3) {
                         if (current.tiles[i][j] != 0) {
-                            is_solved = 0;
+                            solved = 0;
                         }
                     } else {
-                        if (current.tiles[i][j] != expected++) {
-                            is_solved = 0;
+                        if (current.tiles[i][j] != counter++) {
+                            solved = 0;
                         }
                     }
                 }
             }
             
-            if (is_solved) {
-                cleanup_list(seen);
-                cleanup_list(q.storage);
-                return current.step_count;
+            if (solved) {
+                destroy_list(visited);
+                destroy_list(q.data);
+                return current.num_steps;
             }
-            
-            struct game_state next_state;
+
+            struct game_state new_state;
             if (current.empty_row > 0) {
-                next_state = current;
-                slide_down(&next_state);
-                add_to_queue(&q, next_state);
+                new_state = current;
+                move_down(&new_state);
+                add_to_queue(&q, new_state);
             }
             if (current.empty_row < 3) {
-                next_state = current;
-                slide_up(&next_state);
-                add_to_queue(&q, next_state);
+                new_state = current;
+                move_up(&new_state);
+                add_to_queue(&q, new_state);
             }
             if (current.empty_col > 0) {
-                next_state = current;
-                slide_right(&next_state);
-                add_to_queue(&q, next_state);
+                new_state = current;
+                move_right(&new_state);
+                add_to_queue(&q, new_state);
             }
             if (current.empty_col < 3) {
-                next_state = current;
-                slide_left(&next_state);
-                add_to_queue(&q, next_state);
+                new_state = current;
+                move_left(&new_state);
+                add_to_queue(&q, new_state);
             }
         }
     }
     
-    cleanup_list(q.storage);
-    cleanup_list(seen);
+    destroy_list(q.data);
+    destroy_list(visited);
     return -1;
 }
