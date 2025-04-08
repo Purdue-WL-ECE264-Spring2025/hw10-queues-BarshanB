@@ -1,88 +1,88 @@
 #include "linked_list.h"
 #include <stdlib.h>
 
-struct list_node *create_list_node(size_t val) { 
-    struct list_node *new = malloc(sizeof(struct list_node));
-    if (new) {
-        new->next_ptr = NULL;
-        new->data = val;
+struct list_node *create_node(size_t val) {
+    struct list_node *node = malloc(sizeof(struct list_node));
+    if (node) {
+        node->next = NULL;
+        node->value = val;
     }
-    return new;
+    return node;
 }
 
-void add_to_front(struct linked_list *lst, size_t val) {
-    if (!lst) return;
+void prepend_node(struct linked_list *list, size_t val) {
+    if (!list) return;
     
-    struct list_node *new = create_list_node(val);
-    if (new) {
-        new->next_ptr = lst->first;
-        lst->first = new;
+    struct list_node *node = create_node(val);
+    if (node) {
+        node->next = list->head;
+        list->head = node;
     }
 }
 
-void append_to_end(struct linked_list *lst, size_t val) {
-    if (!lst) return;
+void append_node(struct linked_list *list, size_t val) {
+    if (!list) return;
     
-    if (lst->first) {
-        struct list_node *new = create_list_node(val);
-        if (new) {
-            struct list_node *current = lst->first;
-            while (current->next_ptr) {
-                current = current->next_ptr;
+    if (list->head) {
+        struct list_node *node = create_node(val);
+        if (node) {
+            struct list_node *current = list->head;
+            while (current->next) {
+                current = current->next;
             }
-            current->next_ptr = new;
+            current->next = node;
         }
     } else {
-        lst->first = create_list_node(val);
+        list->head = create_node(val);
     }
 }
 
-size_t pop_front(struct linked_list *lst) {
-    if (!lst || !lst->first) return 0;
+size_t remove_first(struct linked_list *list) {
+    if (!list || !list->head) return 0;
     
-    size_t result = lst->first->data;
-    struct list_node *temp = lst->first;
-    lst->first = temp->next_ptr;
+    size_t val = list->head->value;
+    struct list_node *temp = list->head;
+    list->head = temp->next;
     free(temp);
     
-    return result;
+    return val;
 }
 
-size_t remove_from_end(struct linked_list *lst) {
-    if (!lst || !lst->first) return 0;
+size_t remove_last(struct linked_list *list) {
+    if (!list || !list->head) return 0;
     
     struct list_node *prev = NULL;
-    struct list_node *curr = lst->first;
+    struct list_node *curr = list->head;
     
-    while (curr->next_ptr) {
+    while (curr->next) {
         prev = curr;
-        curr = curr->next_ptr;
+        curr = curr->next;
     }
     
-    size_t result = curr->data;
+    size_t val = curr->value;
     if (prev) {
-        prev->next_ptr = NULL;
+        prev->next = NULL;
     } else {
-        lst->first = NULL;
+        list->head = NULL;
     }
     free(curr);
     
-    return result;
+    return val;
 }
 
-void cleanup_list(struct linked_list lst) {
-    struct list_node *current = lst.first;
+void destroy_list(struct linked_list list) {
+    struct list_node *current = list.head;
     while (current) {
-        struct list_node *next = current->next_ptr;
+        struct list_node *next = current->next;
         free(current);
         current = next;
     }
 }
 
-void print_list(FILE *output, struct linked_list lst) {
-    fprintf(output, "[ ");
-    for (struct list_node *node = lst.first; node; node = node->next_ptr) {
-        fprintf(output, "%zu ", node->data);
+void print_list(FILE *fp, struct linked_list list) {
+    fprintf(fp, "[ ");
+    for (struct list_node *node = list.head; node; node = node->next) {
+        fprintf(fp, "%zu ", node->value);
     }
-    fprintf(output, "]\n");
+    fprintf(fp, "]\n");
 }
